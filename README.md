@@ -93,6 +93,21 @@ Solo se decide un mensaje pendiente. La aprobación se bloquea cuando el prospec
 
 Los listados devuelven `{ "items": [], "total": 0, "page": 1, "limit": 20 }`. `page` admite 1–100000 y `limit` 1–100; por defecto son 1 y 20. Las entradas son estrictas. Las rutas de datos devuelven errores como `{ "error": { "code": "...", "message": "..." } }`: 400 para validación, 404 para inexistentes y 409 para conflictos, estado incompatible, `DO_NOT_CONTACT` o supresión.
 
+### Conversaciones y borradores
+
+- `POST /conversations`: crea una conversación vinculada a `prospectId`; admite `channel` (`EMAIL`, `WHATSAPP`, `FACEBOOK`, `INSTAGRAM`) y `status` opcional.
+- `GET /conversations`: lista conversaciones con `page`, `limit`, `prospectId`, `channel`, `status` y `q`.
+- `GET /conversations/:conversationId`: obtiene una conversación con sus mensajes.
+- `PATCH /conversations/:conversationId`: modifica `channel` o `status`.
+- `DELETE /conversations/:conversationId`: elimina la conversación y sus mensajes por relación en cascada.
+- `GET /conversations/:conversationId/messages`: lista mensajes con `page`, `limit`, `status`, `direction` y `q`.
+- `POST /conversations/:conversationId/messages`: crea un mensaje en `DRAFT` con `direction` (`IN` o `OUT`), `subject`, `body` y `aiGenerated` opcional.
+- `PATCH /conversations/:conversationId/messages/:messageId`: modifica únicamente un mensaje en `DRAFT`.
+- `POST /conversations/:conversationId/messages/:messageId/request-approval`: cambia un borrador a `PENDING_APPROVAL` y registra auditoría.
+- `POST /conversations/messages/:messageId/request-approval`: variante directa para solicitar aprobación por ID de mensaje.
+
+Los borradores pueden modificarse antes de solicitar aprobación. Al pasar a `PENDING_APPROVAL`, no se envían ni generan automáticamente con IA. La aprobación posterior sigue las reglas de supresión y `DO_NOT_CONTACT` descritas abajo.
+
 ## Ubuntu: recomendaciones de operación segura
 
 - Mantener Ubuntu y sus paquetes actualizados; instalar Docker desde fuentes oficiales y restringir el acceso administrativo. La pertenencia al grupo `docker` equivale prácticamente a privilegios de root.

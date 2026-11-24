@@ -7,6 +7,7 @@ import { prisma } from './lib/prisma.js';
 import { approvalRoutes } from './modules/approvals/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { prospectRoutes } from './modules/prospects/routes.js';
+import { conversationRoutes } from './modules/conversations/routes.js';
 import { authPlugin } from './plugins/auth.js';
 import { installErrorHandler } from './plugins/error-handler.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
@@ -25,5 +26,6 @@ export async function buildServer() {
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(prospectRoutes, { prefix: '/prospects' });
   await app.register(approvalRoutes, { prefix: '/approvals' });
+  await app.register(conversationRoutes, { prefix: '/conversations' });
   return app;
 }
