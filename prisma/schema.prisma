@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WebsiteStatus {
+  NONE
+  SLOW
+  NOT_MOBILE_FRIENDLY
+  OUTDATED
+  OK
+  UNKNOWN
+}
+
+enum ProspectStatus {
+  NEW
+  QUALIFIED
+  DRAFTED
+  PENDING_APPROVAL
+  CONTACTED
+  REPLIED
+  CALL_SCHEDULED
+  PROPOSAL_SENT
+  WON
+  LOST
+  DO_NOT_CONTACT
+}
+
+enum Channel {
+  EMAIL
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+}
+
+enum MessageDirection {
+  IN
+  OUT
+}
+
+enum MessageStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SENT
+  FAILED
+}
+
+model Prospect {
+  id            String         @id @default(uuid()) @db.Uuid
+  businessName  String
+  category      String?
+  address       String?
+  city          String?
+  state         String?
+  phone         String?
+  email         String?
+  websiteUrl    String?
+  googleMapsUrl String?
+  googlePlaceId String?        @unique
+  rating        Float?
+  reviewsCount  Int?
+  websiteStatus WebsiteStatus  @default(UNKNOWN)
+  score         Int            @default(0)
+  status        ProspectStatus @default(NEW)
+  source        String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
+
+  @@index([status, createdAt])
+}
+
+model Conversation {
+  id         String    @id @default(uuid()) @db.Uuid
+  prospectId String    @db.Uuid
+  prospect   Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  channel    Channel
+  status     String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  messages   Message[]
+
+  @@index([prospectId])
+}
+
+model Message {
+  id             String           @id @default(uuid()) @db.Uuid
+  conversationId String           @db.Uuid
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      MessageDirection
+  subject        String?
+  body           String
+  status         MessageStatus    @default(DRAFT)
+  aiGenerated    Boolean          @default(false)
+  approvedAt     DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@index([status, createdAt])
+  @@index([conversationId])
+}
+
+model Suppression {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String?
+  phone     String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([phone])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json
+  createdAt DateTime @default(now())
+}

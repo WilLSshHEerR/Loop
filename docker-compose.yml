@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB en .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      HOST: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL en .env con host postgres}
+      CORS_ORIGIN: ${CORS_ORIGIN:?Defina CORS_ORIGIN en .env}
+      OWNER_USERNAME: ${OWNER_USERNAME:?Defina OWNER_USERNAME en .env}
+      OWNER_PASSWORD_HASH: ${OWNER_PASSWORD_HASH:?Defina OWNER_PASSWORD_HASH en .env}
+      TOTP_SECRET: ${TOTP_SECRET:?Defina TOTP_SECRET en .env}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET en .env}
+    ports:
+      - '127.0.0.1:${PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && exec node dist/index.js']
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
