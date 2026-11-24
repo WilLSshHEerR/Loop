@@ -1,6 +1,22 @@
+const { existsSync } = require('node:fs');
+require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+let databaseUrl = process.env.DATABASE_URL;
+if (databaseUrl && !existsSync('/.dockerenv')) {
+  try {
+    const url = new URL(databaseUrl);
+    if (url.hostname === 'postgres') {
+      url.hostname = '127.0.0.1';
+      url.port = '5432';
+      databaseUrl = url.toString();
+    }
+  } catch {
+    databaseUrl = undefined;
+  }
+}
+
+const prisma = new PrismaClient(databaseUrl ? { datasourceUrl: databaseUrl } : undefined);
 
 async function main() {
   const prospects = [

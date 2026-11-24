@@ -7,7 +7,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     files: ['prisma/**/*.cjs'],
-    languageOptions: { sourceType: 'commonjs', globals: { require: 'readonly', module: 'readonly', process: 'readonly', console: 'readonly' } },
+    languageOptions: { sourceType: 'commonjs', globals: { require: 'readonly', module: 'readonly', process: 'readonly', console: 'readonly', URL: 'readonly' } },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
