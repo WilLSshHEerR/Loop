@@ -30,7 +30,6 @@ const schema = z.object({
   CORS_ORIGIN: origin,
   OWNER_USERNAME: z.string().trim().min(1).max(255),
   OWNER_PASSWORD_HASH: z.string().regex(/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/),
-  TOTP_SECRET: z.string().regex(/^[A-Z2-7]+=*$/i),
   JWT_SECRET: z.string().min(32),
 });
 

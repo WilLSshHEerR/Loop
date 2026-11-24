@@ -4,8 +4,6 @@ import { dirname, join, resolve } from 'node:path';
 import { createInterface, emitKeypressEvents } from 'node:readline';
 import bcrypt from 'bcryptjs';
 import { parse } from 'dotenv';
-import { authenticator } from 'otplib';
-import qrcode from 'qrcode-terminal';
 
 function ask(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -56,7 +54,7 @@ async function main(): Promise<void> {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
   const existing = parse(original);
-  if (existing.OWNER_USERNAME || existing.OWNER_PASSWORD_HASH || existing.TOTP_SECRET) {
+  if (existing.OWNER_USERNAME || existing.OWNER_PASSWORD_HASH) {
     const answer = await ask('Ya existe configuración de autenticación. ¿Reemplazarla? [s/N] ');
     if (answer.trim().toLowerCase() !== 's') throw new Error('Configuración cancelada.');
   }
@@ -73,11 +71,9 @@ async function main(): Promise<void> {
   }
   if (password !== await askSecret('Confirma la contraseña: ')) throw new Error('Las contraseñas no coinciden.');
 
-  const secret = authenticator.generateSecret();
   const values: Record<string, string> = {
     OWNER_USERNAME: username,
     OWNER_PASSWORD_HASH: await bcrypt.hash(password, 12),
-    TOTP_SECRET: secret,
     JWT_SECRET: existing.JWT_SECRET || randomBytes(64).toString('hex'),
   };
 
@@ -86,6 +82,7 @@ async function main(): Promise<void> {
   const lines = original.split(/\r?\n/);
   const seen = new Set<string>();
   const updated = lines.map((line) => {
+    if (/^\s*(?:export\s+)?TOTP_SECRET\s*=/.test(line)) return '';
     const assignment = line.match(/^\s*(?:export\s+)?[\w.-]+\s*=\s*(.*)$/);
     const raw = assignment?.[1].trim();
     if (raw && (raw.startsWith('"') || raw.startsWith("'") || raw.startsWith('`'))) {
@@ -95,7 +92,7 @@ async function main(): Promise<void> {
         throw new Error('Hay una asignación multilínea o ambigua en .env; no se modificó el archivo.');
       }
     }
-    const match = line.match(/^\s*(?:export\s+)?(OWNER_USERNAME|OWNER_PASSWORD_HASH|TOTP_SECRET|JWT_SECRET)\s*=\s*(.*)$/);
+    const match = line.match(/^\s*(?:export\s+)?(OWNER_USERNAME|OWNER_PASSWORD_HASH|JWT_SECRET)\s*=\s*(.*)$/);
     if (!match) return line;
     seen.add(match[1]);
     if (match[1] === 'JWT_SECRET' && existing.JWT_SECRET) return line;
@@ -131,8 +128,7 @@ async function main(): Promise<void> {
     if (created) await unlink(temp).catch(() => undefined);
   }
 
-  console.log('Configuración guardada. Escanea el QR en un lugar privado; concede acceso a la cuenta.');
-  qrcode.generate(authenticator.keyuri(username, 'Loop', secret), { small: true });
+  console.log('Configuración guardada. El inicio de sesión utiliza usuario y contraseña.');
 }
 
 main().catch((err: unknown) => {

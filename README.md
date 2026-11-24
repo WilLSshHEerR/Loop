@@ -1,6 +1,6 @@
 # Loop — gestión de prospectos y aprobaciones
 
-API de prospectos y aprobación de mensajes con Node.js 22, Fastify 5, Prisma 6 y PostgreSQL. La autenticación utiliza contraseña y TOTP.
+API de prospectos y aprobación de mensajes con Node.js 22, Fastify 5, Prisma 6 y PostgreSQL. La autenticación utiliza usuario y contraseña.
 
 ## Requisitos y configuración local
 
@@ -13,7 +13,7 @@ npm install
 npm run setup:auth
 ```
 
-El Dockerfile necesita el archivo de bloqueo que genera `npm install`. `setup:auth` requiere terminal interactiva, pide usuario y contraseña sin mostrar esta última y crea un secreto TOTP y un secreto JWT si no existe uno. Escanear el QR en privado; no compartir ni registrar el QR, códigos, tokens, hash o secretos. Si se confirma el reemplazo de una configuración previa, cambia el usuario, el hash y el secreto TOTP, aunque conserva el secreto JWT existente.
+El Dockerfile necesita el archivo de bloqueo que genera `npm install`. `setup:auth` requiere terminal interactiva, pide usuario y contraseña sin mostrar esta última y crea un hash bcrypt y un secreto JWT si no existe uno. No genera ni imprime códigos QR ni solicita TOTP. Si se confirma el reemplazo de una configuración previa, cambia el usuario y el hash, aunque conserva el secreto JWT existente.
 
 Completar los demás valores en `.env`; el siguiente fragmento describe **marcadores**, no valores válidos listos para producción:
 
@@ -25,7 +25,6 @@ DATABASE_URL=postgresql://<USUARIO_URL>:<PASSWORD_URL>@127.0.0.1:5432/<BASE>?sch
 CORS_ORIGIN=https://<ORIGEN_AUTORIZADO>
 OWNER_USERNAME=<GENERADO_POR_SETUP_AUTH>
 OWNER_PASSWORD_HASH='<GENERADO_POR_SETUP_AUTH>'
-TOTP_SECRET=<GENERADO_POR_SETUP_AUTH>
 JWT_SECRET=<GENERADO_POR_SETUP_AUTH>
 POSTGRES_USER=<USUARIO_POSTGRES>
 POSTGRES_PASSWORD=<PASSWORD_POSTGRES>
@@ -70,9 +69,9 @@ Los ejemplos son ficticios.
 
 ### Autenticación
 
-1. `POST /auth/login`: `{ "username": "<USUARIO>", "password": "<CONTRASEÑA>" }`. Devuelve `challengeToken`, no un token de acceso.
-2. `POST /auth/verify-2fa`: `{ "challengeToken": "<DESAFÍO>", "code": "<CÓDIGO_TOTP>" }`. Devuelve `accessToken` y `refreshToken`.
-3. En rutas protegidas, enviar `Authorization: Bearer <ACCESS_TOKEN>`. `POST /auth/refresh`, con `{ "refreshToken": "<REFRESH_TOKEN>" }`, renueva los tokens y consume el refresh anterior.
+1. `POST /auth/login`: `{ "username": "<USUARIO>", "password": "<CONTRASEÑA>" }`. Devuelve `accessToken` y `refreshToken`.
+2. En rutas protegidas, enviar `Authorization: Bearer <ACCESS_TOKEN>`.
+3. `POST /auth/refresh`, con `{ "refreshToken": "<REFRESH_TOKEN>" }`, renueva los tokens y consume el refresh anterior.
 
 ### Prospectos
 
@@ -125,6 +124,6 @@ Si la restauración falla, investigar antes de volver a iniciar la aplicación. 
 
 - Las pruebas de rutas usan `inject` y un Prisma simulado: no demuestran integridad SQL, aislamiento real, reversión transaccional ni concurrencia entre procesos. Complementarlas con pruebas sobre PostgreSQL antes de producción.
 - Zod 3 presenta una vulnerabilidad de agotamiento de memoria para colecciones sobredimensionadas; la corrección publicada requiere Zod 4. Las entradas actuales no aceptan colecciones y Fastify limita el tamaño del cuerpo, pero se recomienda evaluar la actualización antes de producción.
-- El bloqueo por IP, la prevención de reutilización TOTP y la rotación de refresh se almacenan en memoria del proceso: se pierden al reiniciar y no se comparten entre réplicas. Un proxy mal configurado puede agrupar clientes en una IP o permitir suplantarla. No existe revocación persistente de tokens.
+- El bloqueo por IP y la rotación de refresh se almacenan en memoria del proceso: se pierden al reiniciar y no se comparten entre réplicas. Un proxy mal configurado puede agrupar clientes en una IP o permitir suplantarla. No existe revocación persistente de tokens.
 - El acceso es de propietario único; no hay roles ni autorización granular. La auditoría almacenada en la base no es inmutable frente a acceso directo a ella.
 - Una supresión insertada después de aprobar no revierte la decisión. Los procesos externos deben aplicar una política de concurrencia compatible y comprobar nuevamente las supresiones antes de cualquier envío.

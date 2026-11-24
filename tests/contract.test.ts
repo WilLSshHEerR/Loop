@@ -1,13 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import type { FastifyInstance } from 'fastify';
-import { authenticator } from 'otplib';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Credenciales efímeras: las pruebas no leen ni utilizan el .env real.
 const username = 'propietario-de-prueba';
 const password = randomBytes(24).toString('hex');
-const totpSecret = authenticator.generateSecret();
 const prospectId = '00000000-0000-4000-8000-000000000101';
 const conversationId = '00000000-0000-4000-8000-000000000102';
 const messageId = '00000000-0000-4000-8000-000000000103';
@@ -40,8 +38,7 @@ beforeAll(async () => {
     NODE_ENV: 'test', PORT: '3000', HOST: '127.0.0.1',
     DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/test?schema=public',
     CORS_ORIGIN: 'http://localhost:3000', OWNER_USERNAME: username,
-    OWNER_PASSWORD_HASH: await bcrypt.hash(password, 12), TOTP_SECRET: totpSecret,
-    JWT_SECRET: randomBytes(64).toString('hex'),
+    OWNER_PASSWORD_HASH: await bcrypt.hash(password, 12), JWT_SECRET: randomBytes(64).toString('hex'),
     POSTGRES_USER: 'test', POSTGRES_PASSWORD: 'test', POSTGRES_DB: 'test',
   });
   vi.doMock('../src/lib/prisma.js', () => ({ prisma: db }));
@@ -83,14 +80,37 @@ function authorization() {
 }
 
 describe('autenticación mediante inject', () => {
-  it('exige acceso y no acepta un desafío como token de acceso', async () => {
+  it('exige acceso y rechaza credenciales inválidas', async () => {
     const anonymous = await app.inject({ method: 'GET', url: '/prospects', remoteAddress: ip() });
     expect(anonymous.statusCode).toBe(401);
-    const login = await app.inject({ method: 'POST', url: '/auth/login', remoteAddress: ip(), payload: { username, password } });
+
+    const invalid = await app.inject({
+      method: 'POST', url: '/auth/login', remoteAddress: ip(),
+      payload: { username, password: 'incorrecta' },
+    });
+    expect(invalid.statusCode).toBe(401);
+  });
+
+  it('devuelve access y refresh tras un login correcto', async () => {
+    const login = await app.inject({
+      method: 'POST', url: '/auth/login', remoteAddress: ip(),
+      payload: { username, password },
+    });
     expect(login.statusCode).toBe(200);
-    expect(login.json()).toHaveProperty('challengeToken');
-    expect(login.json()).not.toHaveProperty('accessToken');
-    const denied = await app.inject({ method: 'GET', url: '/prospects', headers: { authorization: `Bearer ${login.json().challengeToken}` }, remoteAddress: ip() });
+    expect(login.json()).toHaveProperty('accessToken');
+    expect(login.json()).toHaveProperty('refreshToken');
+  });
+
+  it('rechaza usar refresh como token de acceso', async () => {
+    const login = await app.inject({
+      method: 'POST', url: '/auth/login', remoteAddress: ip(),
+      payload: { username, password },
+    });
+    const denied = await app.inject({
+      method: 'GET', url: '/prospects',
+      headers: { authorization: `Bearer ${login.json().refreshToken}` },
+      remoteAddress: ip(),
+    });
     expect(denied.statusCode).toBe(401);
   });
 
@@ -105,26 +125,28 @@ describe('autenticación mediante inject', () => {
     expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
   });
 
-  it('verifica el segundo factor, impide reutilizaciones y rota el refresh token', async () => {
-    const remoteAddress = ip();
-    const login = await app.inject({ method: 'POST', url: '/auth/login', remoteAddress, payload: { username, password } });
-    expect(login.statusCode).toBe(200);
-    const challengeToken = login.json().challengeToken;
-    const code = authenticator.generate(totpSecret);
-    const invalid = await app.inject({ method: 'POST', url: '/auth/verify-2fa', remoteAddress, payload: { challengeToken: 'invalid', code } });
-    expect(invalid.statusCode).toBe(401);
-    const verified = await app.inject({ method: 'POST', url: '/auth/verify-2fa', remoteAddress, payload: { challengeToken, code } });
-    expect(verified.statusCode).toBe(200);
-    const { accessToken, refreshToken } = verified.json();
-    expect(accessToken).toBeTruthy();
+  it('rota el refresh y impide reutilizarlo', async () => {
+    const login = await app.inject({
+      method: 'POST', url: '/auth/login', remoteAddress: ip(),
+      payload: { username, password },
+    });
+    const { refreshToken } = login.json();
     expect(refreshToken).toBeTruthy();
-    const replay = await app.inject({ method: 'POST', url: '/auth/verify-2fa', remoteAddress, payload: { challengeToken, code } });
-    expect(replay.statusCode).toBe(401);
-    const rotated = await app.inject({ method: 'POST', url: '/auth/refresh', remoteAddress, payload: { refreshToken } });
+
+    const rotated = await app.inject({ method: 'POST', url: '/auth/refresh', remoteAddress: ip(), payload: { refreshToken } });
     expect(rotated.statusCode).toBe(200);
+    expect(rotated.json().accessToken).toBeTruthy();
     expect(rotated.json().refreshToken).not.toBe(refreshToken);
-    const reused = await app.inject({ method: 'POST', url: '/auth/refresh', remoteAddress, payload: { refreshToken } });
+
+    const reused = await app.inject({ method: 'POST', url: '/auth/refresh', remoteAddress: ip(), payload: { refreshToken } });
     expect(reused.statusCode).toBe(401);
+  });
+
+  it('valida el payload de login y renovación', async () => {
+    const invalidLogin = await app.inject({ method: 'POST', url: '/auth/login', remoteAddress: ip(), payload: { username: '', password: '' } });
+    expect(invalidLogin.statusCode).toBe(400);
+    const invalidRefresh = await app.inject({ method: 'POST', url: '/auth/refresh', remoteAddress: ip(), payload: { refreshToken: '' } });
+    expect(invalidRefresh.statusCode).toBe(400);
   });
 });
 
