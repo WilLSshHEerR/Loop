@@ -53,7 +53,9 @@ docker compose ps
 docker compose logs --tail=100 app
 ```
 
-Compose espera el healthcheck de PostgreSQL, ejecuta `prisma migrate deploy` y después inicia la aplicación. La API solo se publica en `127.0.0.1:${PORT:-3000}` del host; PostgreSQL no publica un puerto. El volumen `postgres_data` persiste los datos. No usar `docker compose down -v` salvo que se pretenda destruir el volumen y exista un respaldo comprobado. Revisar los logs sin divulgar datos personales o secretos.
+Compose espera el healthcheck de PostgreSQL, ejecuta `prisma migrate deploy` y después inicia la aplicación. La API se publica en `127.0.0.1:${PORT:-3000}` y el panel web en `127.0.0.1:${WEB_PORT:-3001}`. PostgreSQL permanece limitado a `127.0.0.1:5432`. El volumen `postgres_data` persiste los datos.
+
+Abrir `http://127.0.0.1:3001` para acceder al panel. El login usa las mismas credenciales del propietario; el access token se guarda temporalmente en `sessionStorage` del navegador y desaparece al cerrar la pestaña o al cerrarse explícitamente la sesión. No usar `docker compose down -v` salvo que se pretenda destruir el volumen y exista un respaldo comprobado. Revisar los logs sin divulgar datos personales o secretos.
 
 ## Migraciones y seed
 

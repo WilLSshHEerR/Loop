@@ -37,5 +37,17 @@ services:
     command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && exec node dist/index.js']
     restart: unless-stopped
 
+  web:
+    build:
+      context: ./web
+    environment:
+      NEXT_PUBLIC_LOOP_API_URL: ${NEXT_PUBLIC_LOOP_API_URL:-http://127.0.0.1:3000}
+    ports:
+      - '127.0.0.1:${WEB_PORT:-3001}:3001'
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
