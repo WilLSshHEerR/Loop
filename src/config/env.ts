@@ -31,6 +31,10 @@ const schema = z.object({
   OWNER_USERNAME: z.string().trim().min(1).max(255),
   OWNER_PASSWORD_HASH: z.string().regex(/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/),
   JWT_SECRET: z.string().min(32),
+  GOOGLE_PLACES_API_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().trim().min(1).optional()),
+  GEMINI_API_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().trim().min(1).optional()),
+  GEMINI_MODEL: z.string().trim().min(1).default('gemini-2.5-flash'),
+  PLACES_DAILY_REQUEST_LIMIT: z.coerce.number().int().min(1).max(100000).default(1000),
 });
 
 const parsed = schema.safeParse(process.env);

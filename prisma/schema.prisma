@@ -51,28 +51,37 @@ enum MessageStatus {
   FAILED
 }
 
+enum ContactChannelHint {
+  EMAIL
+  WHATSAPP_MANUAL
+  PHONE_MANUAL
+}
+
 model Prospect {
-  id            String         @id @default(uuid()) @db.Uuid
-  businessName  String
-  category      String?
-  address       String?
-  city          String?
-  state         String?
-  phone         String?
-  email         String?
-  websiteUrl    String?
-  googleMapsUrl String?
-  googlePlaceId String?        @unique
-  rating        Float?
-  reviewsCount  Int?
-  websiteStatus WebsiteStatus  @default(UNKNOWN)
-  score         Int            @default(0)
-  status        ProspectStatus @default(NEW)
-  source        String?
-  notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  conversations Conversation[]
+  id                 String              @id @default(uuid()) @db.Uuid
+  businessName       String
+  category           String?
+  address            String?
+  city               String?
+  state              String?
+  phone              String?
+  email              String?
+  websiteUrl         String?
+  googleMapsUrl      String?
+  googlePlaceId      String?             @unique
+  lastRefreshedAt    DateTime?
+  contactChannelHint ContactChannelHint?
+  emailSource        String?
+  rating             Float?
+  reviewsCount       Int?
+  websiteStatus      WebsiteStatus       @default(UNKNOWN)
+  score              Int                 @default(0)
+  status             ProspectStatus      @default(NEW)
+  source             String?
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  conversations      Conversation[]
 
   @@index([status, createdAt])
 }
