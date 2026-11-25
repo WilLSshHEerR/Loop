@@ -28,7 +28,7 @@ Google Places API (New), utilizando Text Search. No se implementará scraping de
 
 ## 3. Buscador de prospectos
 
-- [ ] Crear `src/modules/discovery/routes.ts`.
+- [x] Crear `src/modules/discovery/routes.ts`.
 - [ ] Crear `POST /discovery/search` para recibir ciudad, categoría y términos permitidos.
 - [ ] Validar todas las entradas con Zod.
 - [x] Fuente aprobada y documentada: Google Places API (New), Text Search.
